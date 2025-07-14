@@ -15,7 +15,7 @@ export interface Column {
   isTheme: boolean; // この列がAIの分析テーマであるかを示すフラグ
 }
 
-// ★★★ 変更: 各政党のURLを最新版に更新 ★★★
+// ★★★ 変更: 「参政党」を追加 ★★★
 export const initialPartyData: Omit<Party, 'analysisResult'>[] = [
   { id: 'ldp', name: '自由民主党', shugiinSeats: 261, sangiinSeats: 119, policyUrl: 'https://www.jimin.jp/policy/' },
   { id: 'cdp', name: '立憲民主党', shugiinSeats: 99, sangiinSeats: 39, policyUrl: 'https://cdp-japan.jp/visions/policies2024/' },
@@ -25,6 +25,7 @@ export const initialPartyData: Omit<Party, 'analysisResult'>[] = [
   { id: 'jcp', name: '日本共産党', shugiinSeats: 10, sangiinSeats: 11, policyUrl: 'https://www.jcp.or.jp/web_policy/' },
   { id: 'reiwa', name: 'れいわ新選組', shugiinSeats: 3, sangiinSeats: 5, policyUrl: 'https://reiwa-shinsengumi.com/policy/' },
   { id: 'sdp', name: '社会民主党', shugiinSeats: 1, sangiinSeats: 1, policyUrl: 'https://sdp.or.jp/information/priority-policy-2022/' },
+  { id: 'sansei', name: '参政党', shugiinSeats: 0, sangiinSeats: 1, policyUrl: 'https://www.sanseito.jp/policy/' },
   { id: 'saisei', name: '再生の道', shugiinSeats: 'ー', sangiinSeats: 'ー', policyUrl: 'https://ishimaru-shinji.com/#policy' },
 ];
 
