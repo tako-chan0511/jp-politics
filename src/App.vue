@@ -6,21 +6,21 @@
         <h1>AI 政策比較アプリ</h1>
       </div>
       <p class="description">
-        各政党の政策に関する文章を下の入力欄に貼り付け、「比較・分析」ボタンを押してください。<br>
-        AIが、下の表の各項目について要約・比較します。
+        各政党の政策が書かれたページのURLを入力し、「比較・分析」ボタンを押してください。<br>
+        AIがWebページの内容を読み取り、下の表の各項目について要約・比較します。
       </p>
 
       <div class="input-section">
-        <h2>政策入力</h2>
+        <h2>政策URL入力</h2>
         <div class="input-grid">
           <div v-for="party in parties" :key="party.id" class="party-input">
             <label :for="party.id">{{ party.name }}</label>
-            <textarea 
+            <input 
+              type="url"
               :id="party.id"
-              v-model="party.policyText"
-              :placeholder="`${party.name}の政策や公約を貼り付け...`"
-              rows="8"
-            ></textarea>
+              v-model="party.policyUrl"
+              :placeholder="`${party.name}の政策ページのURL`"
+            />
           </div>
         </div>
       </div>
@@ -48,9 +48,7 @@
             </thead>
             <tbody>
               <tr v-for="party in parties" :key="party.id">
-                <!-- Data cells are dynamically rendered based on column definitions -->
                 <td v-for="column in columns" :key="column.key">
-                  <!-- Use a helper function to get the correct value for each cell -->
                   {{ getPartyValue(party, column.key) }}
                 </td>
               </tr>
@@ -64,43 +62,37 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-// ★★★ 外だしのデータ管理ファイルから、初期データと型をインポート ★★★
 import { initialPartyData, comparisonColumns, type Party, type Column } from '@/services/politicsData';
 
 // --- State ---
 const parties = ref<Party[]>(
-  // 初期データに、テキスト入力欄と分析結果用の空のプロパティを追加
-  initialPartyData.map(p => ({ ...p, policyText: '', analysisResult: {} }))
+  initialPartyData.map(p => ({ ...p, analysisResult: {} }))
 );
 const columns = ref<Column[]>(comparisonColumns);
 const loading = ref(false);
 const error = ref('');
 
 // --- Computed ---
-// AIに分析を依頼するテーマ（列）だけを抽出
 const themeColumns = computed(() => columns.value.filter(c => c.isTheme));
 
-// --- Methods ---
+// --- Method ---
 const analyzePolicies = async () => {
-  // 政策テキストが入力された政党だけを対象にする
-  const partiesWithText = parties.value.filter(p => p.policyText.trim());
-  if (partiesWithText.length === 0) {
-    error.value = '比較するためには、少なくとも1つの政党の政策を入力してください。';
+  const partiesWithUrl = parties.value.filter(p => p.policyUrl && p.policyUrl.trim() !== '');
+  if (partiesWithUrl.length === 0) {
+    error.value = '比較するためには、少なくとも1つの政党のURLを入力してください。';
     return;
   }
 
   loading.value = true;
   error.value = '';
-  // 分析開始前に、以前の分析結果をクリア
   parties.value.forEach(p => p.analysisResult = {});
 
   try {
-    // バックエンドAPIを呼び出し
     const response = await fetch('/api/summarize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        parties: partiesWithText.map(p => ({ id: p.id, name: p.name, policyText: p.policyText })),
+        parties: partiesWithUrl.map(p => ({ id: p.id, name: p.name, policyUrl: p.policyUrl })),
         themes: themeColumns.value.map(c => ({ key: c.key, label: c.label })),
       }),
     });
@@ -109,7 +101,6 @@ const analyzePolicies = async () => {
 
     if (response.ok) {
       const analysisData = data.analysis;
-      // AIの分析結果を、対応する政党のデータにマージする
       parties.value.forEach(party => {
         if (analysisData[party.id]) {
           party.analysisResult = analysisData[party.id];
@@ -125,7 +116,6 @@ const analyzePolicies = async () => {
   }
 };
 
-// テーブルのセルに表示する値を取得するためのヘルパー関数
 const getPartyValue = (party: Party, columnKey: string): string | number => {
   switch (columnKey) {
     case 'partyName':
@@ -135,14 +125,12 @@ const getPartyValue = (party: Party, columnKey: string): string | number => {
     case 'sangiinSeats':
       return party.sangiinSeats;
     default:
-      // AIによる分析結果、またはプレースホルダーを返す
       return party.analysisResult[columnKey] || (loading.value ? '分析中...' : '...');
   }
 };
 </script>
 
 <style>
-/* 以前のスタイルをベースに、テーブル用のスタイルなどを追加 */
 body { font-family: 'Google Sans', sans-serif; background: #f8f9fa; color: #202124; }
 #app { padding: 2rem; }
 .politics-container { max-width: 1400px; margin: 2rem auto; padding: 2.5rem; background: #fff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
@@ -153,7 +141,7 @@ h1 { font-size: 2rem; font-weight: 500; }
 .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
 .party-input { display: flex; flex-direction: column; }
 .party-input label { font-weight: bold; margin-bottom: 0.5rem; }
-.party-input textarea { padding: 0.75rem; border: 1px solid #dadce0; border-radius: 8px; resize: vertical; font-size: 1rem; }
+.party-input input { padding: 0.75rem; border: 1px solid #dadce0; border-radius: 8px; font-size: 1rem; }
 .analyze-button { width: 100%; padding: 1rem; font-size: 1.1rem; font-weight: 500; color: white; background-color: #4285F4; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
 .analyze-button:hover:not(:disabled) { background-color: #3367D6; }
 .analyze-button:disabled { background-color: #a0c3ff; cursor: not-allowed; }
