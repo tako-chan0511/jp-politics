@@ -38,7 +38,12 @@
       </div>
 
       <div class="results-section">
-        <h2>比較結果</h2>
+        <div class="results-header">
+          <h2>比較結果</h2>
+          <span v-if="cacheStatus !== null" class="cache-status" :class="{ hit: cacheStatus }">
+            {{ cacheStatus ? '⚡️ キャッシュから高速表示' : '☁️ AIが新規に分析' }}
+          </span>
+        </div>
         <div class="table-wrapper">
           <table>
             <thead>
@@ -71,6 +76,7 @@ const parties = ref<Party[]>(
 const columns = ref<Column[]>(comparisonColumns);
 const loading = ref(false);
 const error = ref('');
+const cacheStatus = ref<boolean | null>(null);
 
 // --- Computed ---
 const themeColumns = computed(() => columns.value.filter(c => c.isTheme));
@@ -85,6 +91,7 @@ const analyzePolicies = async () => {
 
   loading.value = true;
   error.value = '';
+  cacheStatus.value = null;
   parties.value.forEach(p => p.analysisResult = {});
 
   try {
@@ -97,20 +104,33 @@ const analyzePolicies = async () => {
       }),
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      const analysisData = data.analysis;
-      parties.value.forEach(party => {
-        if (analysisData[party.id]) {
-          party.analysisResult = analysisData[party.id];
-        }
-      });
-    } else {
-      error.value = data.error || '比較・分析に失敗しました。';
+    // ★★★ 変更: サーバーからのエラー応答をより詳しく解析する ★★★
+    if (!response.ok) {
+      // まずテキストとしてエラー内容を取得しようと試みる
+      const errorText = await response.text();
+      try {
+        // テキストがJSON形式であれば、その中のエラーメッセージを使う
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.error || `サーバーエラーが発生しました (Status: ${response.status})`);
+      } catch (e) {
+        // テキストがJSONでなければ、そのテキスト自体をエラーメッセージとする
+        throw new Error(errorText || `サーバーエラーが発生しました (Status: ${response.status})`);
+      }
     }
-  } catch (e) {
-    error.value = '通信エラーが発生しました。';
+
+    const data = await response.json();
+    
+    const analysisData = data.analysis;
+    cacheStatus.value = data.fromCache;
+    parties.value.forEach(party => {
+      if (analysisData[party.id]) {
+        party.analysisResult = analysisData[party.id];
+      }
+    });
+
+  } catch (e: any) {
+    console.error("Fetch Error:", e);
+    error.value = e.message; // サーバーからの生のエラーメッセージを表示
   } finally {
     loading.value = false;
   }
@@ -149,6 +169,10 @@ h1 { font-size: 2rem; font-weight: 500; }
 .loading-spinner-small { width: 20px; height: 20px; border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: #ffffff; animation: spin 1s ease infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .error-message { margin-top: 1.5rem; padding: 1rem; background-color: #fdeaed; color: #a50e0e; border-radius: 8px; }
+.results-header { display: flex; align-items: center; gap: 1rem; }
+.cache-status { font-size: 0.8rem; padding: 0.25rem 0.75rem; border-radius: 1rem; color: #fff; }
+.cache-status.hit { background-color: #34a853; } /* Green for cache hit */
+.cache-status:not(.hit) { background-color: #fbbc05; } /* Yellow for cache miss */
 .table-wrapper { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.95rem; }
 th, td { padding: 1rem 0.75rem; border: 1px solid #dadce0; text-align: left; vertical-align: top; }
