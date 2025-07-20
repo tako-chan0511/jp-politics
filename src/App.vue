@@ -65,7 +65,6 @@
         </div>
       </div>
 
-      <!-- ★★★ 変更: 自由質問セクションを分離 ★★★ -->
       <div class="freeform-section" v-if="isAnalyzed">
         <h2>自由質問</h2>
         <p class="description">上の比較表を参考に、さらに詳しく知りたいことをAIに質問してみましょう。</p>
@@ -86,9 +85,11 @@
         <strong>エラー:</strong> {{ error }}
       </div>
 
+      <!-- ★★★ 変更点: AIの回答表示エリア ★★★ -->
       <div v-if="freeformAnswer" class="summary-result">
         <h2>「{{ freeformAnswer.question }}」への回答:</h2>
-        <pre class="summary-pre">{{ freeformAnswer.answer }}</pre>
+        <!-- v-htmlディレクティブとmarked()関数を使ってHTMLとして描画 -->
+        <div class="markdown-body" v-html="marked(freeformAnswer.answer)"></div>
       </div>
 
     </div>
@@ -97,12 +98,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+// ★★★ 追加: Markdownパーサーをインポート ★★★
+import { marked } from 'marked';
 import { initialPartyData, comparisonColumns, type Party, type Column } from '@/services/politicsData';
 
 // --- State ---
 const parties = ref<Party[]>([]);
 const columns = ref<Column[]>(comparisonColumns);
-// ★★★ 変更: ローディング状態を分離 ★★★
 const loading = ref({
   themes: false,
   freeform: false,
@@ -114,11 +116,9 @@ const freeformAnswer = ref<{ question: string; answer: string } | null>(null);
 
 // --- Computed ---
 const themeColumns = computed(() => columns.value.filter(c => c.isTheme));
-// ★★★ 追加: 一度でもテーマ別分析が実行されたかを判定 ★★★
 const isAnalyzed = computed(() => parties.value.some(p => Object.keys(p.analysisResult).length > 0));
 
 // --- Methods ---
-// ★★★ 変更: テーマ別比較専用の関数 ★★★
 const analyzeThemes = async () => {
   const partiesWithUrl = parties.value.filter(p => p.policyUrl && p.policyUrl.trim() !== '');
   if (partiesWithUrl.length === 0) {
@@ -129,9 +129,8 @@ const analyzeThemes = async () => {
   loading.value.themes = true;
   error.value = '';
   cacheStatus.value = null;
-  freeformAnswer.value = null; // テーマ分析時は自由質問の回答もクリア
+  freeformAnswer.value = null; 
   
-  // 分析結果だけをクリアし、URL入力は保持
   parties.value.forEach(p => p.analysisResult = {});
 
   try {
@@ -157,13 +156,11 @@ const analyzeThemes = async () => {
   }
 };
 
-// ★★★ 追加: 自由質問専用の関数 ★★★
 const askFreeformQuestion = async () => {
   if (!freeformQuestion.value.trim()) {
     error.value = '質問内容を入力してください。';
     return;
   }
-  // 分析済みの政党データをバックエンドに送る
   const analyzedParties = parties.value.filter(p => p.policyUrl.trim() !== '');
 
   loading.value.freeform = true;
@@ -176,7 +173,7 @@ const askFreeformQuestion = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         parties: analyzedParties.map(p => ({ id: p.id, name: p.name, policyUrl: p.policyUrl })),
-        themes: [], // 自由質問の際はテーマは不要
+        themes: [], 
         freeformQuestion: freeformQuestion.value,
       }),
     });
@@ -185,7 +182,6 @@ const askFreeformQuestion = async () => {
       if (data.freeformAnswer) {
         freeformAnswer.value = data.freeformAnswer;
       }
-      // テーマ別分析の結果は更新しないが、キャッシュステータスは更新する
       cacheStatus.value = data.fromCache;
     } else {
       error.value = data.error || '質問への回答生成に失敗しました。';
@@ -197,7 +193,6 @@ const askFreeformQuestion = async () => {
   }
 };
 
-// ★★★ 追加: 結果をクリアして再分析するための関数 ★★★
 const resetAnalysis = () => {
   parties.value.forEach(p => {
     p.analysisResult = {};
@@ -232,18 +227,15 @@ const getPartyValue = (party: Party, columnKey: string): string | number => {
 // --- Local Storage Persistence ---
 const storageKey = 'jp-politics-app-data';
 
-// ★★★ 追加: ページ読み込み時にlocalStorageからデータを復元 ★★★
 onMounted(() => {
   const savedData = localStorage.getItem(storageKey);
   if (savedData) {
     parties.value = JSON.parse(savedData);
   } else {
-    // 保存されたデータがない場合は初期データを使う
     parties.value = initialPartyData.map(p => ({ ...p, analysisResult: {} }));
   }
 });
 
-// ★★★ 追加: partiesデータが変更されるたびにlocalStorageに保存 ★★★
 watch(parties, (newParties) => {
   localStorage.setItem(storageKey, JSON.stringify(newParties));
 }, { deep: true });
@@ -287,7 +279,28 @@ h1 { font-size: 2rem; font-weight: 500; }
 .cache-status:not(.hit) { background-color: #fbbc05; }
 .summary-result { margin-top: 2rem; padding: 1.5rem; background-color: #e8f0fe; border: 1px solid #d2e3fc; border-radius: 8px; }
 .summary-result h2 { margin-top: 0; color: #1967d2; font-size: 1.2rem; }
-.summary-pre { white-space: pre-wrap; word-wrap: break-word; font-family: 'Roboto Mono', monospace; line-height: 1.7; }
+
+/* ★★★ 変更点: 自由質問の回答表示スタイル ★★★ */
+.markdown-body {
+  text-align: left; /* 回答全体を左詰めに */
+  white-space: pre-wrap; /* AIが生成した改行を維持 */
+  word-wrap: break-word;
+  line-height: 1.7;
+  font-family: sans-serif; /* 読みやすいフォントに */
+}
+/* 見出しのスタイル */
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  border-bottom: 1px solid #d2e3fc;
+  padding-bottom: 0.3em;
+  margin-top: 1.5em;
+  margin-bottom: 1em;
+}
+/* 強調キーワードのスタイル */
+.markdown-body strong {
+  color: #d93025; /* 目立つ赤色に変更 */
+  font-weight: 600; /* 太字を少し強調 */
+}
+
 .freeform-section { margin-top: 2.5rem; }
 .freeform-section p.description { font-size: 0.95rem; margin-bottom: 1.5rem; }
 .freeform-input-group { display: flex; align-items: flex-start; gap: 1rem; }
