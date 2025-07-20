@@ -17,7 +17,6 @@ interface AnalysisResult {
     [themeKey: string]: string;
   };
 }
-// ★★★ 追加: フリーフォーマット質問の回答の型 ★★★
 interface FreeformAnswer {
   question: string;
   answer: string;
@@ -34,7 +33,6 @@ export default async function handler(
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  // ★★★ 変更: freeformQuestionも受け取る ★★★
   const { parties, themes, freeformQuestion } = req.body as { parties: PartyData[], themes: Theme[], freeformQuestion?: string };
 
   if (!parties || !themes) {
@@ -45,7 +43,6 @@ export default async function handler(
   }
 
   try {
-    // ★★★ 変更: キャッシュキーに質問内容も加える ★★★
     const cacheKey = parties.map(p => p.policyUrl).sort().join('|') + `::${freeformQuestion || ''}`;
     const cachedData = await kv.get<{ analysis: AnalysisResult, freeformAnswer?: FreeformAnswer }>(cacheKey);
 
@@ -67,12 +64,20 @@ export default async function handler(
       throw new Error("すべてのURLから政策情報を取得できませんでした。");
     }
 
-    // ★★★ 変更: AIへのリクエストを並行して実行 ★★★
-    const [analysis, freeformAnswer] = await Promise.all([
-      getAnalysisFromAI(successfulScrapes, themes, apiKey),
+    // ★★★ ここからが変更点 ★★★
+    // 1. analysis変数をAnalysisResult型で明確に初期化
+    const analysis: AnalysisResult = {};
+
+    const [themeAnalysis, freeformAnswer] = await Promise.all([
+      themes.length > 0 ? getAnalysisFromAI(successfulScrapes, themes, apiKey) : Promise.resolve({}),
       freeformQuestion ? getFreeformAnswerFromAI(successfulScrapes, freeformQuestion, apiKey) : Promise.resolve(undefined)
     ]);
 
+    // 2. AIからの分析結果をマージ
+    Object.assign(analysis, themeAnalysis);
+    // ★★★ ここまでが変更点 ★★★
+
+    // この処理がエラーなく実行できるようになる
     failedScrapes.forEach(failedParty => {
       const errorResult: { [key: string]: string } = {};
       themes.forEach(theme => {
@@ -96,7 +101,6 @@ export default async function handler(
 
 // --- ヘルパー関数 ---
 async function scrapeTextFromUrl(party: PartyData): Promise<PartyData & { policyText: string }> {
-  // (この関数は変更なし)
   if (!party.policyUrl) {
     return { ...party, policyText: "（URLが指定されていません）" };
   }
@@ -115,7 +119,7 @@ async function scrapeTextFromUrl(party: PartyData): Promise<PartyData & { policy
 }
 
 async function getAnalysisFromAI(policies: any[], themes: Theme[], apiKey: string): Promise<AnalysisResult> {
-  // (この関数は変更なし、ただしプロンプトを少し調整)
+  if (themes.length === 0) return {};
   const themeDescriptions = themes.map(t => `"${t.label}"`).join(', ');
   const themeKeys = themes.map(t => `"${t.key}": "ここに要約結果"`).join(',\n        ');
   const prompt = `
@@ -141,20 +145,26 @@ async function getAnalysisFromAI(policies: any[], themes: Theme[], apiKey: strin
   }
 }
 
-// ★★★ 追加: フリーフォーマット質問に回答するAI関数 ★★★
 async function getFreeformAnswerFromAI(policies: any[], question: string, apiKey: string): Promise<FreeformAnswer> {
   const prompt = `
-    あなたは中立的な政策アナリストです。以下の政策データを基に、ユーザーからの質問に客観的に回答してください。
+    あなたは、鋭い洞察力と大胆な予測で知られる、経験豊富な政治経済アナリストです。
+    提供された各政党の政策データと、あなたが持つ日本の政治経済に関する広範な知識を基に、ユーザーからの以下の質問に対して、プロフェッショナルとして掘り下げた分析を提供してください。
+
+    【提供された政策データ】
     \`\`\`json
     ${JSON.stringify(policies.map(p => ({ name: p.name, policy: p.policyText })))}
     \`\`\`
-    **ユーザーからの質問:**
+
+    【ユーザーからの質問】
     「${question}」
 
-    **回答の指示:**
-    - 必ず提供された政策データのみを根拠としてください。
-    - どの政党がどのような主張をしているか、比較しながら具体的に記述してください。
-    - あなた自身の意見や、外部の知識は含めないでください。
+    【回答の指示】
+    1.  **事実に基づく要約**: まず、提供された政策データから、質問に直接関連する各党の主張を客観的に要約してください。
+    2.  **アナリストの洞察**: 次に、あなたの専門的な知見から、それらの政策の背景にある政治的・経済的な狙いや、各党の戦略について深く分析してください。字面通りの解釈に留まらず、行間を読んでください。
+    3.  **今後の展望とリスク**: 最後に、それらの政策が実行された場合に考えられる社会への影響、経済的な帰結、そして潜在的なリスクやチャンスについて、大胆な推察を含めて論じてください。
+    4.  **書式**:
+        * 回答は、上記1, 2, 3の構成がわかるように、Markdownの見出し（例: \`### 事実の要約\`）を使って読みやすくまとめてください。
+        * 特に重要だと考えるキーワードや政策名は、必ず \`<strong>キーワード</strong>\` のようにHTMLのstrongタグで囲んで強調してください。
   `;
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
   const requestBody = { contents: [{ parts: [{ text: prompt }] }] };
