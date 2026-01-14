@@ -1,6 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import * as cheerio from 'cheerio';
-import { kv } from '@vercel/kv';
+// import { kv } from '@vercel/kv';  <-- これを削除し、以下に変更
+import { createClient } from '@vercel/kv';
+
+// 明示的にクライアントを作成する
+const kv = createClient({
+  url: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 // --- 型定義 ---
 interface PartyData {
