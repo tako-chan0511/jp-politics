@@ -134,7 +134,7 @@ async function getAnalysisFromAI(policies: any[], themes: Theme[], apiKey: strin
     { "政党のID": { ${themeKeys} }, "政党のID": { ... } }
     \`\`\`
   `;
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   const requestBody = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
   const apiResponse = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
   const data = await apiResponse.json();
@@ -166,7 +166,7 @@ async function getFreeformAnswerFromAI(policies: any[], question: string, apiKey
         * 回答は、上記1, 2, 3の構成がわかるように、Markdownの見出し（例: \`### 事実の要約\`）を使って読みやすくまとめてください。
         * 特に重要だと考えるキーワードや政策名は、必ず \`<strong>キーワード</strong>\` のようにHTMLのstrongタグで囲んで強調してください。
   `;
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   const requestBody = { contents: [{ parts: [{ text: prompt }] }] };
   const apiResponse = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
   const data = await apiResponse.json();
