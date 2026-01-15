@@ -102,6 +102,9 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { marked } from 'marked';
 import { initialPartyData, comparisonColumns, type Party, type Column } from '@/services/politicsData';
 
+// --- Data Version Management ---
+const DATA_VERSION = '2026-01-15'; // データ更新時にこのバージョンを変更
+
 // --- State ---
 const parties = ref<Party[]>([]);
 const columns = ref<Column[]>(comparisonColumns);
@@ -226,18 +229,31 @@ const getPartyValue = (party: Party, columnKey: string): string | number => {
 
 // --- Local Storage Persistence ---
 const storageKey = 'jp-politics-app-data';
+const versionKey = 'jp-politics-data-version';
 
 onMounted(() => {
   const savedData = localStorage.getItem(storageKey);
-  if (savedData) {
+  const savedVersion = localStorage.getItem(versionKey);
+  
+  // バージョンが一致する場合のみ保存データを使用
+  if (savedData && savedVersion === DATA_VERSION) {
     parties.value = JSON.parse(savedData);
+    console.log('保存されたデータを読み込みました（バージョン:', savedVersion, '）');
   } else {
+    // バージョンが異なる、または存在しない場合は最新データを使用
     parties.value = initialPartyData.map(p => ({ ...p, analysisResult: {} }));
+    localStorage.setItem(versionKey, DATA_VERSION);
+    if (savedVersion && savedVersion !== DATA_VERSION) {
+      console.log('データバージョンが更新されました:', savedVersion, '→', DATA_VERSION);
+    } else {
+      console.log('初回起動: 最新データを読み込みました');
+    }
   }
 });
 
 watch(parties, (newParties) => {
   localStorage.setItem(storageKey, JSON.stringify(newParties));
+  localStorage.setItem(versionKey, DATA_VERSION);
 }, { deep: true });
 
 </script>
