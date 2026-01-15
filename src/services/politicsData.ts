@@ -15,17 +15,17 @@ export interface Column {
   isTheme: boolean; // この列がAIの分析テーマであるかを示すフラグ
 }
 
-// ★★★ 変更: 「参政党」を追加 ★★★
+// ★★★ 更新: 2026年1月15日現在の国会議席数（衆議院は最新データ、参議院は2024年10月9日時点） ★★★
 export const initialPartyData: Omit<Party, 'analysisResult'>[] = [
-  { id: 'ldp', name: '自由民主党', shugiinSeats: 261, sangiinSeats: 119, policyUrl: 'https://www.jimin.jp/policy/' },
-  { id: 'cdp', name: '立憲民主党', shugiinSeats: 99, sangiinSeats: 39, policyUrl: 'https://cdp-japan.jp/visions/policies2024/' },
-  { id: 'jip', name: '日本維新の会', shugiinSeats: 41, sangiinSeats: 21, policyUrl: 'https://o-ishin.jp/policy/' },
-  { id: 'komei', name: '公明党', shugiinSeats: 32, sangiinSeats: 27, policyUrl: 'https://www.komei.or.jp/policy/' },
-  { id: 'dpp', name: '国民民主党', shugiinSeats: 10, sangiinSeats: 10, policyUrl: 'https://new-kokumin.jp/policies' },
-  { id: 'jcp', name: '日本共産党', shugiinSeats: 10, sangiinSeats: 11, policyUrl: 'https://www.jcp.or.jp/web_policy/' },
-  { id: 'reiwa', name: 'れいわ新選組', shugiinSeats: 3, sangiinSeats: 5, policyUrl: 'https://reiwa-shinsengumi.com/policy/' },
-  { id: 'sdp', name: '社会民主党', shugiinSeats: 1, sangiinSeats: 1, policyUrl: 'https://sdp.or.jp/information/priority-policy-2022/' },
-  { id: 'sansei', name: '参政党', shugiinSeats: 0, sangiinSeats: 1, policyUrl: 'https://www.sanseito.jp/policy/' },
+  { id: 'ldp', name: '自由民主党', shugiinSeats: 199, sangiinSeats: 114, policyUrl: 'https://www.jimin.jp/policy/' },
+  { id: 'cdp', name: '立憲民主党', shugiinSeats: 148, sangiinSeats: 41, policyUrl: 'https://cdp-japan.jp/visions/policies2024/' },
+  { id: 'jip', name: '日本維新の会', shugiinSeats: 34, sangiinSeats: 21, policyUrl: 'https://o-ishin.jp/policy/' },
+  { id: 'komei', name: '公明党', shugiinSeats: 24, sangiinSeats: 27, policyUrl: 'https://www.komei.or.jp/policy/' },
+  { id: 'dpp', name: '国民民主党', shugiinSeats: 27, sangiinSeats: 11, policyUrl: 'https://new-kokumin.jp/policies' },
+  { id: 'jcp', name: '日本共産党', shugiinSeats: 8, sangiinSeats: 11, policyUrl: 'https://www.jcp.or.jp/web_policy/' },
+  { id: 'reiwa', name: 'れいわ新選組', shugiinSeats: 9, sangiinSeats: 5, policyUrl: 'https://reiwa-shinsengumi.com/policy/' },
+  { id: 'sdp', name: '社会民主党', shugiinSeats: 0, sangiinSeats: 0, policyUrl: 'https://sdp.or.jp/information/priority-policy-2022/' },
+  { id: 'sansei', name: '参政党', shugiinSeats: 3, sangiinSeats: 1, policyUrl: 'https://www.sanseito.jp/policy/' },
   { id: 'saisei', name: '再生の道', shugiinSeats: 'ー', sangiinSeats: 'ー', policyUrl: 'https://ishimaru-shinji.com/#policy' },
 ];
 
