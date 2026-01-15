@@ -1,0 +1,86 @@
+@startuml テーマ別比較分析フロー（完成版）
+title テーマ別比較分析フロー（非同期）
+hide footbox
+!theme plain
+
+participant "ユーザー" as user
+box "フロントエンド（Vue.js）" #LightBlue
+  participant "App.vue\n(analyzeThemes)" as app
+end box
+
+box "Vercelエッジ" #LightPink
+  participant "API Gateway\n/api/summarize" as gw
+  participant "Lambda\nsummarize.ts\nhandler" as handler
+  participant "Cache Manager\n(Vercel KV)" as cache
+end box
+
+box "外部サービス" #LightYellow
+  participant "複数URLソース\n(政策ページ)" as urls
+  participant "Google Gemini API\n(AI分析)" as gemini
+end box
+
+activate user
+user -> app: 「テーマ別比較を実行」\nボタンをクリック\n<font size=10>analyzeThemes()</font>
+activate app
+
+app -> gw: POST /api/summarize\n<font size=10>{ parties[], themes[], freeformQuestion? }</font>
+activate gw
+
+alt バリデーションNG（必須パラメータ不正）
+  gw --> app: 400 Bad Request\n<font size=10>{ "error": "..." }</font>
+else OK（Handler実行）
+  gw -> handler: Lambda実行\n<font size=10>invoke</font>
+  activate handler
+
+  group キャッシュ確認スコープ (Vercel KV)
+    handler -> cache: キャッシュ取得\n<font size=10>kv.get(cacheKey)</font>
+    activate cache
+    cache --> handler: キャッシュデータ返却
+    deactivate cache
+  end
+
+  alt キャッシュHIT
+    handler --> gw: 処理結果返却 (200 OK)\n<font size=10>{ "analysis": {...}, "fromCache": true }</font>
+    gw --> app: 正常応答\n<font size=10>{ "analysis": {...}, "fromCache": true }</font>
+  else キャッシュMISS（新規分析）
+    
+    group URLスクレイピングスコープ (並列処理)
+      handler -> urls: 複数URL並列フェッチ\n<font size=10>Promise.all()</font>
+      activate urls
+      urls --> handler: HTMLコンテンツ取得
+      deactivate urls
+      
+      handler -> handler: cheerioでパース\n・スクリプト/スタイル削除\n・テキスト抽出\n・15,000文字に制限
+    end
+
+    alt スクレイピング成功
+      handler -> gemini: AI分析リクエスト\n<font size=10>getAnalysisFromAI()</font>\n<font size=10>{ parties, themes, policyTexts }</font>
+      activate gemini
+      gemini --> handler: テーマ別分析結果\n<font size=10>{ party1: { theme1: "...", theme2: "..." }, ... }</font>
+      deactivate gemini
+
+      handler -> cache: キャッシュ保存\n<font size=10>kv.set(cacheKey, analysisResult,\nEX: 86400)</font>
+      activate cache
+      cache --> handler: 保存完了
+      deactivate cache
+
+      handler --> gw: 処理結果返却 (200 OK)\n<font size=10>{ "analysis": {...}, "fromCache": false }</font>
+      gw --> app: 正常応答\n<font size=10>{ "analysis": {...}, "fromCache": false }</font>
+    else スクレイピング失敗（すべてのURL取得失敗）
+      handler --> gw: エラー応答返却 (500)\n<font size=10>{ "error": "すべてのURLから..." }</font>
+      gw --> app: エラー応答 (500)
+    end
+
+  end
+
+  deactivate handler
+end
+
+deactivate gw
+
+app -> app: 結果をstateに保存\nloadingフラグ = false\ncacheStatus更新
+
+app --> user: テーブル表示更新\n「テーマ別 比較結果」\n表示完了
+deactivate app
+deactivate user
+@enduml
