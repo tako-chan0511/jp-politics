@@ -50,7 +50,7 @@ export default async function handler(
   }
 
   try {
-    const cacheKey = parties.map(p => p.policyUrl).sort().join('|') + `::${freeformQuestion || ''}`;
+    const cacheKey = `jp-pol:` + parties.map(p => p.policyUrl).sort().join('|') + `::${freeformQuestion || ''}`;
     const cachedData = await kv.get<{ analysis: AnalysisResult, freeformAnswer?: FreeformAnswer }>(cacheKey);
 
     if (cachedData) {
